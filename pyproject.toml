@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "molmot"
+version = "0.2.0"
+description = "Molecular Magneto-Optical Trap Simulation"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+dependencies = [
+    "numpy>=1.20",
+    "scipy>=1.7",
+    "matplotlib>=3.4",
+]
+
+[project.optional-dependencies]
+jit = ["numba>=0.55"]
+test = ["pytest>=7.0"]
+all = ["numba>=0.55", "pytest>=7.0"]
+
+[tool.setuptools.packages.find]
+include = ["molmot*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

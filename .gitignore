@@ -1,0 +1,26 @@
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+*.so
+.pytest_cache/
+.numba_cache/
+
+# Development files
+dev/
+CaOHBlueMOTSimulations/
+*.png
+*.ipynb
+*.ipynb_checkpoints/
+
+# Julia build artifacts
+julia_sim/*.jl
+julia_sim/Project.toml
+julia_sim/Manifest.toml
+
+# OS files
+.DS_Store
+Thumbs.db
