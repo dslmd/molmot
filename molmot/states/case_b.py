@@ -527,6 +527,317 @@ def zeeman_nuclear(s1: HundsCaseB_LinearMolecule,
 
 
 # =====================================================================
+# Operator: Spin-rotation (Lambda=0 specialisation)
+# =====================================================================
+
+def SpinRotation_Lambda0(s1: HundsCaseB_LinearMolecule,
+                         s2: HundsCaseB_LinearMolecule) -> float:
+    """
+    Spin-rotation for zero internuclear-axis angular momentum (Lambda=0).
+
+    Reference: Hirota, eq. (2.3.30).
+    """
+    if not delta(s1, s2, "v1", "v2", "v3", "S", "I",
+                 "Lambda", "ell", "K", "N", "J", "F", "M"):
+        return 0.0
+
+    N = _f(s1.N)
+    S = _f(s1.S)
+    J = _f(s1.J)
+
+    if S == 0:
+        return 0.0
+
+    val = ((-1) ** int(N + S + J) *
+           math.sqrt(float(S * (S + 1) * (2 * S + 1) *
+                           N * (N + 1) * (2 * N + 1))) *
+           wigner6j(S, N, J, N, S, 1))
+    return val
+
+
+# =====================================================================
+# Operator: Magnetic quadrupole
+# =====================================================================
+
+def magnetic_quadrupole(s1: HundsCaseB_LinearMolecule,
+                        s2: HundsCaseB_LinearMolecule) -> float:
+    """
+    Magnetic quadrupole interaction.
+
+    Reference: Hirota, eq. (2.3.80).
+    """
+    if not delta(s1, s2, "v1", "v2", "v3", "S", "I",
+                 "Lambda", "ell", "K", "N", "J", "F", "M"):
+        return 0.0
+
+    F = _f(s1.F)
+    J = _f(s1.J)
+    I = _f(s1.I)
+
+    return 0.5 * float(F * (F + 1) - J * (J + 1) - I * (I + 1))
+
+
+# =====================================================================
+# Operator: Zeeman (rotational)
+# =====================================================================
+
+def zeeman_rotation(s1: HundsCaseB_LinearMolecule,
+                    s2: HundsCaseB_LinearMolecule,
+                    p: int) -> float:
+    """
+    Rotational Zeeman interaction (proportional to M).
+
+    Reference: Brown & Carrington, eq. (8.18).
+    """
+    if not delta(s1, s2, "v1", "v2", "v3", "S", "I",
+                 "Lambda", "ell", "K", "N", "J", "F", "M"):
+        return 0.0
+
+    return float(_f(s1.M))
+
+
+# =====================================================================
+# Operator: Sigma expectation value
+# =====================================================================
+
+def Sigma(s1: HundsCaseB_LinearMolecule) -> float:
+    """
+    Expectation value of the Sigma quantum number for a case (b) basis state.
+
+    Computed by projection onto case (a) components.
+    """
+    Lambda = _f(s1.Lambda)
+    N = _f(s1.N)
+    S = _f(s1.S)
+    J = _f(s1.J)
+    K = _f(s1.K)
+
+    S_int2 = int(2 * float(S))
+    val = 0.0
+    for Sig_idx in range(S_int2 + 1):
+        Sig = Fraction(-S_int2 + 2 * Sig_idx, 2)
+        Omega = Lambda + Sig
+        w = wigner3j(J, S, N, Omega, -Sig, -Lambda)
+        val += float(Sig) * float(2 * N + 1) * float(w) ** 2
+
+    return val
+
+
+def Sigma_state(state, basis, coeffs) -> float:
+    """Sigma expectation for an eigenstate given by coefficients over a basis."""
+    val = 0.0
+    for i, b in enumerate(basis):
+        val += Sigma(b) * abs(coeffs[i]) ** 2
+    return val
+
+
+# =====================================================================
+# Operator: Transition dipole moment (magnetic)
+# =====================================================================
+
+def TDM_magnetic(s1: HundsCaseB_LinearMolecule,
+                 s2: HundsCaseB_LinearMolecule,
+                 p: int) -> float:
+    """
+    Magnetic transition dipole moment for polarisation p = -1, 0, +1.
+
+    Assumes magnetic moment aligned along the molecular z-axis.
+    """
+    if not delta(s1, s2, "v1", "v2", "v3", "S", "I",
+                 "Lambda", "ell", "K", "N"):
+        return 0.0
+
+    N = _f(s1.N)
+    S = _f(s1.S)
+    I = _f(s1.I)
+    J, Jp = _f(s1.J), _f(s2.J)
+    F, Fp = _f(s1.F), _f(s2.F)
+    M, Mp = _f(s1.M), _f(s2.M)
+    Lambda = _f(s1.Lambda)
+
+    if S == 0:
+        return 0.0
+
+    val = ((-1) ** int(p) *
+           (-1) ** int(Fp - Mp) *
+           wigner3j(Fp, 1, F, -Mp, -p, M) *
+           (-1) ** int(Jp + I + F + 1) *
+           math.sqrt(float((2 * F + 1) * (2 * Fp + 1))) *
+           wigner6j(Jp, Fp, I, F, J, 1) *
+           (-1) ** int(N + S + Jp + 1) *
+           math.sqrt(float((2 * J + 1) * (2 * Jp + 1) *
+                           S * (S + 1) * (2 * S + 1))) *
+           wigner6j(S, Jp, N, J, S, 1))
+    return val
+
+
+# =====================================================================
+# Operator: Transition dipole moment (vibrational)
+# =====================================================================
+
+def TDM_vibrational(s1: HundsCaseB_LinearMolecule,
+                    s2: HundsCaseB_LinearMolecule,
+                    p: int) -> float:
+    """
+    Vibrational transition dipole moment for polarisation p = -1, 0, +1.
+
+    Like TDM but without the ell-doubling selection rule, so it can
+    connect states with different vibrational quantum numbers.
+    """
+    N, Np = _f(s1.N), _f(s2.N)
+    S = _f(s1.S)
+    I = _f(s1.I)
+    J, Jp = _f(s1.J), _f(s2.J)
+    F, Fp = _f(s1.F), _f(s2.F)
+    M, Mp = _f(s1.M), _f(s2.M)
+    K, Kp = _f(s1.K), _f(s2.K)
+
+    if abs(F - Fp) > 1 or abs(J - Jp) > 1 or abs(N - Np) > 1:
+        return 0.0
+    if M - Mp != p:
+        return 0.0
+
+    tdm_sum = sum(wigner3j(N, 1, Np, -K, _f(q), Kp) for q in [-1, 0, 1])
+
+    val = (-(-1) ** int(p) *
+           (-1) ** int(F - M) *
+           wigner3j(F, 1, Fp, -M, p, Mp) *
+           (-1) ** int(J + I + Fp + 1) *
+           math.sqrt(float((2 * F + 1) * (2 * Fp + 1))) *
+           wigner6j(Jp, Fp, I, F, J, 1) *
+           (-1) ** int(N + S + Jp + 1) *
+           math.sqrt(float((2 * J + 1) * (2 * Jp + 1))) *
+           wigner6j(Np, Jp, S, J, N, 1) *
+           (-1) ** int(N - K) *
+           math.sqrt(float((2 * N + 1) * (2 * Np + 1))) *
+           tdm_sum)
+    return val
+
+
+# =====================================================================
+# Polarization tensor helper
+# =====================================================================
+
+def polarization_tensor(K: int, P: int, epsilon) -> float:
+    """
+    Compute the polarization tensor P^K_P(epsilon).
+
+    Parameters
+    ----------
+    K : int, rank (0, 1, or 2)
+    P : int, component (-K..K)
+    epsilon : tuple/list of 3 complex numbers (e_{-1}, e_0, e_{+1})
+    """
+    em1, e0, ep1 = epsilon[0], epsilon[1], epsilon[2]
+
+    if P == 0:
+        if K == 0:
+            return 1.0
+        elif K == 1:
+            return float(
+                (ep1 * ep1.conjugate() - em1 * em1.conjugate()).real)
+        elif K == 2:
+            return float((-0.5 * (1 - 3 * e0 * e0.conjugate())).real)
+    elif P == +1:
+        if K == 1:
+            return float(
+                (-(e0 * em1.conjugate() + e0.conjugate() * ep1)).real)
+        elif K == 2:
+            return float(
+                (math.sqrt(1.5) * (-e0 * em1.conjugate() +
+                                    e0.conjugate() * ep1)).real)
+    elif P == -1:
+        if K == 1:
+            return float(
+                (e0 * ep1.conjugate() + e0.conjugate() * em1).real)
+        elif K == 2:
+            return float(
+                (math.sqrt(1.5) * (-e0 * ep1.conjugate() +
+                                    e0.conjugate() * em1)).real)
+    elif P == +2:
+        if K == 2:
+            return float(
+                (-math.sqrt(1.5) * em1.conjugate() * ep1).real)
+    elif P == -2:
+        if K == 2:
+            return float(
+                (-math.sqrt(1.5) * ep1.conjugate() * em1).real)
+    return 0.0
+
+
+# =====================================================================
+# Operator: Polarizability with parity
+# =====================================================================
+
+def polarizability_parity(s1: HundsCaseB_LinearMolecule,
+                          s2: HundsCaseB_LinearMolecule,
+                          alpha, epsilon) -> float:
+    """
+    Polarizability operator including parity dependence.
+
+    Unlike the standard polarizability which uses 6-j symbols for N-J
+    recoupling, this version projects through case (a) Sigma components.
+
+    Parameters
+    ----------
+    alpha : list/tuple of 3 floats, alpha[0], alpha[1], alpha[2]
+    epsilon : list/tuple of 3 complex, polarisation (e_{-1}, e_0, e_{+1})
+    """
+    if not delta(s1, s2, "S", "I", "ell"):
+        return 0.0
+
+    N, Np = _f(s1.N), _f(s2.N)
+    S, Sp = _f(s1.S), _f(s2.S)
+    J, Jp = _f(s1.J), _f(s2.J)
+    F, Fp = _f(s1.F), _f(s2.F)
+    M, Mp = _f(s1.M), _f(s2.M)
+    I = _f(s1.I)
+    K, Kp = _f(s1.K), _f(s2.K)
+
+    val = 0.0
+    for k in range(3):  # k = 0, 1, 2
+        kf = _f(k)
+        for pp in range(-k, k + 1):
+            pf = _f(pp)
+            sig_sum = 0.0
+            for Sig_num in range(int(2 * float(-S)), int(2 * float(S)) + 1):
+                Sig = _f(Sig_num, 2) if (2 * int(float(S))) % 2 == 1 else _f(Sig_num)
+                if abs(float(Sig)) > float(S):
+                    continue
+
+                sig_sum += float(
+                    wigner3j(J, N, S, K + Sig, -K, -Sig) *
+                    wigner3j(Jp, Np, Sp, Kp + Sig, -Kp, -Sig) *
+                    (-1) ** int(J - Sig) *
+                    wigner3j(J, kf, Jp, -Sig, 0, Sig))
+
+            val += -(
+                (-1) ** int(F - M) *
+                wigner3j(F, kf, Fp, -M, pf, Mp) *
+                (-1) ** int(Fp + J + I + k) *
+                math.sqrt(float((2 * F + 1) * (2 * Fp + 1))) *
+                wigner6j(J, F, I, Fp, Jp, kf) *
+                (-1) ** int(N + Np) *
+                math.sqrt(float((2 * N + 1) * (2 * Np + 1))) *
+                math.sqrt(float((2 * J + 1) * (2 * Jp + 1))) *
+                sig_sum
+            ) * alpha[k] * polarization_tensor(k, -pp, epsilon)
+
+    return val
+
+
+# =====================================================================
+# Spherical tensor T_kq for spin-rotation
+# =====================================================================
+
+T_kq_table = [
+    [0.0, 0.0, 0.0],
+    [-2.0 / math.sqrt(3.0), 0.0, -2.0 / math.sqrt(6.0)],
+    [0.0, 0.0, 0.0],
+]
+
+
+# =====================================================================
 # Operator: Transition Dipole Moment (TDM)
 # =====================================================================
 

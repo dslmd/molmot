@@ -1,0 +1,12 @@
+[deps]
+LoopVectorization = "bdcacae8-1622-11e9-2a5c-532679323890"
+MutableNamedTuples = "af6c499f-54b4-48cc-bbd2-094bba7533c7"
+OpticalBlochEquations = "691d0331-80d3-41b1-b293-7891a6f4a14f"
+Parameters = "d96e819e-fc66-5662-9728-84c9c7592b0a"
+Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+QuantumStates = "17f0441f-15e0-42ae-a101-302633ff8f0f"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+StructArrays = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
+UnitsToValue = "5caa0048-c25e-4a56-acb0-6c22dcda5114"
+WignerSymbols_Simple = "6f4d8845-3f91-4d66-b298-731c1c4e9a06"

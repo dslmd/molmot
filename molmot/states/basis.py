@@ -191,3 +191,43 @@ def _make_temp(state_class, current):
     """Create a temporary state object from the currently assigned QNs."""
     kwargs = {name: float(val) for name, val in current.items()}
     return state_class(**kwargs)
+
+
+def order_basis_by_m(basis: list) -> list:
+    """Reorder basis states by their M quantum number."""
+    return sorted(basis, key=lambda s: float(getattr(s, 'M', 0)))
+
+
+def subspace(states: list, qn_bounds: dict, threshold: float = 0.01) -> list:
+    """
+    Extract a subspace of eigenstates whose dominant basis components
+    satisfy the given quantum number bounds.
+
+    Parameters
+    ----------
+    states : list of State (from hamiltonian.py)
+    qn_bounds : dict of {qn_name: list_of_allowed_values}
+    threshold : float
+        Ignore basis components with |coeff|^2 below this.
+
+    Returns
+    -------
+    list of State
+    """
+    result = []
+    for state in states:
+        keep = True
+        for j, coeff in enumerate(state.coeffs):
+            if abs(coeff) ** 2 < threshold:
+                continue
+            b = state.basis[j]
+            for qn, allowed in qn_bounds.items():
+                val = getattr(b, qn, None)
+                if val is not None and val not in allowed:
+                    keep = False
+                    break
+            if not keep:
+                break
+        if keep:
+            result.append(state)
+    return result

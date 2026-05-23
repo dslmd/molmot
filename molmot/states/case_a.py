@@ -137,6 +137,76 @@ def Rotation(s1: HundsCaseA_LinearMolecule,
 
 
 # =====================================================================
+# Operator: Rotation (Sigma states only)
+# =====================================================================
+
+def Rotation_Sigma(s1: HundsCaseA_LinearMolecule,
+                   s2: HundsCaseA_LinearMolecule) -> float:
+    """Rotation restricted to Sigma states (|Lambda + ell| = 0)."""
+    if _f(abs(int(s1.Lambda) + int(s1.ell))) != 0:
+        return 0.0
+    return Rotation(s1, s2)
+
+
+# =====================================================================
+# Operator: Rotation (Delta states only)
+# =====================================================================
+
+def Rotation_Delta(s1: HundsCaseA_LinearMolecule,
+                   s2: HundsCaseA_LinearMolecule) -> float:
+    """Rotation restricted to Delta states (|Lambda + ell| = 2)."""
+    if _f(abs(int(s1.Lambda) + int(s1.ell))) != 2:
+        return 0.0
+    return Rotation(s1, s2)
+
+
+# =====================================================================
+# Operator: Spin Uncoupling (standalone)
+# =====================================================================
+
+def SpinUncoupling(s1: HundsCaseA_LinearMolecule,
+                   s2: HundsCaseA_LinearMolecule) -> float:
+    """
+    Spin-uncoupling term (off-diagonal in Sigma/P by +/-1).
+
+    Reference: Brown & Carrington, eq. (8.364).
+    """
+    if not delta(s1, s2, "v1", "v2", "v3", "I", "S",
+                 "Lambda", "ell", "K", "J", "F", "M"):
+        return 0.0
+
+    J = _f(s1.J)
+    S = _f(s1.S)
+    P1, P2 = _f(s1.P), _f(s2.P)
+    Sigma1, Sigma2 = _f(s1.Sigma), _f(s2.Sigma)
+
+    val = 0.0
+    for q in [-1, 1]:
+        qf = _f(q)
+        w_J = wigner3j(J, 1, J, -P1, qf, P2)
+        w_S = wigner3j(S, 1, S, -Sigma1, qf, Sigma2)
+        val += float(w_J * w_S)
+
+    return (-2.0 *
+            (-1) ** int(J - P1 + S - Sigma1) *
+            math.sqrt(float(J * (J + 1) * (2 * J + 1) *
+                            S * (S + 1) * (2 * S + 1))) * val)
+
+
+# =====================================================================
+# Operator: gK non-adiabatic
+# =====================================================================
+
+def gK_nonadiabatic(s1: HundsCaseA_LinearMolecule,
+                    s2: HundsCaseA_LinearMolecule) -> float:
+    """Non-adiabatic g_K coupling: K * Lambda (diagonal)."""
+    if not delta(s1, s2, "v1", "v2", "v3", "I", "S",
+                 "Lambda", "ell", "K", "Sigma", "J", "P", "F", "M"):
+        return 0.0
+    return float(_f(s1.K) * _f(s1.Lambda))
+
+
+# =====================================================================
 # Operator: Spin-Orbit
 # =====================================================================
 
@@ -322,36 +392,30 @@ def RennerTeller(s1: HundsCaseA_LinearMolecule,
 def Hyperfine_IL(s1: HundsCaseA_LinearMolecule,
                  s2: HundsCaseA_LinearMolecule) -> float:
     """
-    Hyperfine I.L (nuclear spin - orbital angular momentum).
+    Orbital hyperfine interaction (I.L, q=0 diagonal term).
 
-    Diagonal: a * Lambda * Omega_I, where Omega_I is derived from F coupling.
-
-    Reference: Hirota, Section 2.3.
+    Reference: Hirota, eq. (2.3.66); Brown & Carrington, eq. (8.372).
     """
     if not delta(s1, s2, "v1", "v2", "v3", "I", "S",
-                 "Lambda", "ell", "K", "Sigma", "J", "P", "M"):
+                 "Lambda", "ell", "K", "Sigma", "P", "F", "M"):
         return 0.0
 
-    J = _f(s1.J)
+    J, Jp = _f(s1.J), _f(s2.J)
     I = _f(s1.I)
     F, Fp = _f(s1.F), _f(s2.F)
-    M = _f(s1.M)
     P = _f(s1.P)
     Lambda = _f(s1.Lambda)
 
     if I == 0 or Lambda == 0:
         return 0.0
 
-    val = (Lambda *
-           (-1) ** int(J + I + Fp) *
-           math.sqrt(float((2 * F + 1) * (2 * Fp + 1))) *
-           math.sqrt(float(I * (I + 1) * (2 * I + 1))) *
-           wigner6j(I, Fp, J, F, I, 1) *
-           (-1) ** int(J - P) *
-           math.sqrt(float(2 * J + 1)) *
-           wigner3j(J, 1, J, -P, 0, P))
-
-    return val
+    return (float(Lambda) *
+            (-1) ** int(I + J + Fp) *
+            (-1) ** int(J - P) *
+            math.sqrt(float(I * (I + 1) * (2 * I + 1) *
+                            (2 * J + 1) * (2 * Jp + 1))) *
+            wigner6j(I, J, Fp, Jp, I, 1) *
+            wigner3j(J, 1, Jp, -P, 0, P))
 
 
 # =====================================================================
@@ -363,36 +427,39 @@ def Hyperfine_IF(s1: HundsCaseA_LinearMolecule,
     """
     Fermi contact hyperfine: b_F * I.S projected onto case (a) basis.
 
-    Reference: Hirota, Section 2.3.
+    Full implementation including off-diagonal Sigma terms.
+
+    Reference: Hirota, eq. (2.3.67).
     """
     if not delta(s1, s2, "v1", "v2", "v3", "I", "S",
-                 "Lambda", "ell", "K", "M"):
+                 "Lambda", "ell", "K", "F", "M"):
         return 0.0
 
     J, Jp = _f(s1.J), _f(s2.J)
     S = _f(s1.S)
     I = _f(s1.I)
-    F, Fp = _f(s1.F), _f(s2.F)
+    F = _f(s1.F)
     Sigma1, Sigma2 = _f(s1.Sigma), _f(s2.Sigma)
     P1, P2 = _f(s1.P), _f(s2.P)
 
     if I == 0 or S == 0:
         return 0.0
-    if abs(J - Jp) > 1 or abs(F - Fp) > 0:
-        return 0.0
 
-    # Diagonal in Sigma part (dominant)
-    if Sigma1 == Sigma2 and J == Jp and P1 == P2:
-        val = (Sigma1 *
-               (-1) ** int(J + I + F) *
-               math.sqrt(float(I * (I + 1) * (2 * I + 1))) *
-               (-1) ** int(J - P1) *
-               math.sqrt(float(2 * J + 1)) *
-               wigner3j(J, 1, J, -P1, 0, P1) *
-               wigner6j(I, I, 1, J, J, F))
-        return val
+    val = 0.0
+    for q in [-1, 0, 1]:
+        qf = _f(q)
+        w_J = wigner3j(J, 1, Jp, -P1, qf, P2)
+        w_S = wigner3j(S, 1, S, -Sigma1, qf, Sigma2)
+        val += float(w_J * w_S)
 
-    return 0.0
+    return ((-1) ** int(I + J + F) *
+            (-1) ** int(S - Sigma1) *
+            (-1) ** int(J - P1) *
+            math.sqrt(float(I * (I + 1) * (2 * I + 1) *
+                            (2 * J + 1) * (2 * Jp + 1) *
+                            S * (S + 1) * (2 * S + 1))) *
+            wigner6j(I, J, F, Jp, I, 1) *
+            val)
 
 
 # =====================================================================
@@ -402,12 +469,46 @@ def Hyperfine_IF(s1: HundsCaseA_LinearMolecule,
 def Hyperfine_Dipolar_c(s1: HundsCaseA_LinearMolecule,
                         s2: HundsCaseA_LinearMolecule) -> float:
     """
-    Dipolar hyperfine c-term (diagonal in Sigma).
+    Dipolar hyperfine c-term.
 
     Reference: Brown & Carrington, Section 8.7.
     """
-    # Same selection rules as Hyperfine_IF
-    return 0.0  # Higher-order; implement if needed
+    if not delta(s1, s2, "v1", "v2", "v3", "I", "S",
+                 "Lambda", "ell", "K", "F", "M"):
+        return 0.0
+
+    J, Jp = _f(s1.J), _f(s2.J)
+    S = _f(s1.S)
+    I = _f(s1.I)
+    F = _f(s1.F)
+    Sigma1, Sigma2 = _f(s1.Sigma), _f(s2.Sigma)
+    P1, P2 = _f(s1.P), _f(s2.P)
+
+    if I == 0 or S == 0:
+        return 0.0
+
+    val = 0.0
+    for q in [-1, 0, 1]:
+        qf = _f(q)
+        for qp in [-1, 0, 1]:
+            qpf = _f(qp)
+            w_cg = wigner3j(_f(1), _f(2), _f(1), qpf, _f(0), -qf)
+            w_S = wigner3j(S, 1, S, -Sigma1, qpf, Sigma2)
+            if abs(float(w_cg * w_S)) < 1e-18:
+                continue
+            val += ((-1) ** int(q) *
+                    wigner3j(J, 1, Jp, -P1, qf, P2) *
+                    float(w_cg * w_S))
+
+    return (math.sqrt(30.0) / 3.0 *
+            (-1) ** int(I + Jp + F) *
+            (-1) ** int(J - P1) *
+            (-1) ** int(S - Sigma1) *
+            wigner6j(I, Jp, F, J, I, 1) *
+            math.sqrt(float(I * (I + 1) * (2 * I + 1))) *
+            math.sqrt(float((2 * J + 1) * (2 * Jp + 1))) *
+            math.sqrt(float(S * (S + 1) * (2 * S + 1))) *
+            val)
 
 
 # =====================================================================
@@ -417,11 +518,47 @@ def Hyperfine_Dipolar_c(s1: HundsCaseA_LinearMolecule,
 def Hyperfine_Dipolar_d(s1: HundsCaseA_LinearMolecule,
                         s2: HundsCaseA_LinearMolecule) -> float:
     """
-    Dipolar hyperfine d-term (off-diagonal in Sigma by +/-1).
+    Dipolar hyperfine d-term (off-diagonal in Lambda by +/-2).
 
     Reference: Brown & Carrington, Section 8.7.
     """
-    return 0.0  # Higher-order; implement if needed
+    if not delta(s1, s2, "v1", "v2", "v3", "I", "S",
+                 "ell", "F", "M"):
+        return 0.0
+
+    J, Jp = _f(s1.J), _f(s2.J)
+    S = _f(s1.S)
+    I = _f(s1.I)
+    F = _f(s1.F)
+    Sigma1, Sigma2 = _f(s1.Sigma), _f(s2.Sigma)
+    P1, P2 = _f(s1.P), _f(s2.P)
+
+    if I == 0 or S == 0:
+        return 0.0
+
+    val = 0.0
+    for q in [-1, 0, 1]:
+        qf = _f(q)
+        for qp in [-1, 0, 1]:
+            qpf = _f(qp)
+            w1 = wigner3j(_f(1), _f(2), _f(1), qpf, _f(2), -qf)
+            w2 = wigner3j(_f(1), _f(2), _f(1), qpf, _f(-2), -qf)
+            w_S = wigner3j(S, 1, S, -Sigma1, qpf, Sigma2)
+            if abs(float((w1 + w2) * w_S)) < 1e-18:
+                continue
+            val += ((-1) ** int(q) *
+                    wigner3j(J, 1, Jp, -P1, qf, P2) *
+                    float((w1 + w2) * w_S))
+
+    return (math.sqrt(30.0) * 0.5 * math.sqrt(1.5) * (2.0 / 3.0) *
+            (-1) ** int(I + Jp + F) *
+            (-1) ** int(J - P1) *
+            (-1) ** int(S - Sigma1) *
+            wigner6j(I, Jp, F, J, I, 1) *
+            math.sqrt(float(I * (I + 1) * (2 * I + 1))) *
+            math.sqrt(float((2 * J + 1) * (2 * Jp + 1))) *
+            math.sqrt(float(S * (S + 1) * (2 * S + 1))) *
+            val)
 
 
 # =====================================================================
@@ -479,10 +616,12 @@ def Zeeman_S(s1: HundsCaseA_LinearMolecule,
     """
     Spin Zeeman effect: g_S * mu_B * B_p * T^1_p(S).
 
-    Reference: Hirota eq. 2.5.15.
+    Full version including off-diagonal (perpendicular) terms.
+
+    Reference: Brown & Carrington, eq. (9.58).
     """
     if not delta(s1, s2, "v1", "v2", "v3", "I", "S",
-                 "Lambda", "ell", "K"):
+                 "Lambda", "ell"):
         return 0.0
 
     J, Jp = _f(s1.J), _f(s2.J)
@@ -499,26 +638,22 @@ def Zeeman_S(s1: HundsCaseA_LinearMolecule,
         return 0.0
     if Mp - M != p:
         return 0.0
-    if abs(Sigma1 - Sigma2) > 1 or abs(P1 - P2) > 1:
-        return 0.0
 
-    # Two terms: diagonal in Sigma (Sigma part) and off-diagonal (perpendicular)
-
-    # Diagonal in Sigma
-    if Sigma1 == Sigma2 and P1 == P2:
-        val = ((-1) ** int(p) *
-               (-1) ** int(F - M) *
-               wigner3j(F, 1, Fp, -M, p, Mp) *
-               (-1) ** int(J + I + Fp + 1) *
-               math.sqrt(float((2 * F + 1) * (2 * Fp + 1))) *
-               wigner6j(Jp, Fp, I, F, J, 1) *
-               (-1) ** int(J - P1) *
-               math.sqrt(float((2 * J + 1) * (2 * Jp + 1))) *
-               wigner3j(J, 1, Jp, -P1, 0, P1) *
-               Sigma1)
-        return val
-
-    return 0.0
+    val = 0.0
+    for q in [-1, 0, 1]:
+        qf = _f(q)
+        w_J = wigner3j(J, 1, Jp, -P1, qf, P2)
+        w_S = wigner3j(S, 1, S, -Sigma1, qf, Sigma2)
+        val += ((-1) ** int(p) *
+                (-1) ** int(F - M + J + I + Fp + 1 + J - P1 + S - Sigma1) *
+                wigner6j(J, F, I, Fp, Jp, 1) *
+                wigner3j(F, 1, Fp, -M, _f(p), Mp) *
+                math.sqrt(float((2 * F + 1) * (2 * Fp + 1))) *
+                float(w_J) *
+                math.sqrt(float((2 * J + 1) * (2 * Jp + 1))) *
+                float(w_S) *
+                math.sqrt(float(S * (S + 1) * (2 * S + 1))))
+    return val
 
 
 # =====================================================================
@@ -570,3 +705,59 @@ def TDM(s1: HundsCaseA_LinearMolecule,
            tdm_sum)
 
     return val
+
+
+# =====================================================================
+# Operator: Zeeman gl' (cross-term)
+# =====================================================================
+
+def Zeeman_gl_prime(s1: HundsCaseA_LinearMolecule,
+                    s2: HundsCaseA_LinearMolecule,
+                    p: int) -> float:
+    """
+    Zeeman gl' cross-term connecting different K (= Lambda + ell) values.
+
+    This couples states with Delta_K = +/-2 via L+S- or L-S+ terms.
+
+    Reference: Brown & Carrington.
+    """
+    if delta(s1, s2, "v1", "v2", "v3", "I", "S",
+             "Lambda", "ell", "K", "Sigma", "J", "P", "F", "M"):
+        return 0.0
+
+    if not delta(s1, s2, "v1", "v2", "v3", "I", "S"):
+        return 0.0
+
+    J, Jp = _f(s1.J), _f(s2.J)
+    F, Fp = _f(s1.F), _f(s2.F)
+    M, Mp = _f(s1.M), _f(s2.M)
+    I = _f(s1.I)
+    S = _f(s1.S)
+    Sigma1, Sigma2 = _f(s1.Sigma), _f(s2.Sigma)
+    P1, P2 = _f(s1.P), _f(s2.P)
+    K1, K2 = _f(s1.K), _f(s2.K)
+
+    val = 0.0
+    for q in [-1, 1]:
+        qf = _f(q)
+        if K2 != K1 - 2 * qf:
+            continue
+
+        w_J = wigner3j(J, 1, Jp, -P1, qf, P2)
+        w_S = wigner3j(S, 1, S, -Sigma1, -qf, Sigma2)
+
+        val += ((-1) ** int(J - P1 + S - Sigma1) *
+                (-1) ** int(J - P1) *
+                float(w_J) *
+                math.sqrt(float((2 * J + 1) * (2 * Jp + 1))) *
+                (-1) ** int(S - Sigma1) *
+                float(w_S) *
+                math.sqrt(float(S * (S + 1) * (2 * S + 1))))
+
+    return ((-1) ** int(p) *
+            (-1) ** int(F - M) *
+            wigner3j(F, 1, Fp, -M, _f(p), Mp) *
+            (-1) ** int(Fp + J + I + 1) *
+            math.sqrt(float((2 * F + 1) * (2 * Fp + 1))) *
+            wigner6j(Jp, Fp, I, F, J, 1) *
+            val)

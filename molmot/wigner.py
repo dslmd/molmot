@@ -268,3 +268,19 @@ def wigner9j(j1: _Number, j2: _Number, j3: _Number,
         x += 1
 
     return total
+
+
+def wigner3j_safe(j1, j2, j3, m1, m2, m3) -> float:
+    """wigner3j that returns 0.0 for invalid arguments instead of raising."""
+    try:
+        return wigner3j(j1, j2, j3, m1, m2, m3)
+    except (ValueError, ZeroDivisionError):
+        return 0.0
+
+
+def wigner6j_safe(j1, j2, j3, J1, J2, J3) -> float:
+    """wigner6j that returns 0.0 for invalid arguments instead of raising."""
+    try:
+        return wigner6j(j1, j2, j3, J1, J2, J3)
+    except (ValueError, ZeroDivisionError):
+        return 0.0

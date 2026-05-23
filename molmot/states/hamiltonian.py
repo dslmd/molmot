@@ -304,3 +304,174 @@ def operator_to_matrix(basis: list, operator_func: Callable,
                 mat[i, j] = val
 
     return mat
+
+
+# =====================================================================
+# CombinedHamiltonian
+# =====================================================================
+
+class CombinedHamiltonian:
+    """
+    Multiple Hamiltonians sharing a common eigendecomposition.
+
+    Useful when ground and excited states live in different Hilbert
+    spaces but need to be diagonalised together for TDM computation.
+    """
+
+    def __init__(self, hamiltonians: List['Hamiltonian']):
+        self.hamiltonians = list(hamiltonians)
+
+    def evaluate(self):
+        for h in self.hamiltonians:
+            h.evaluate()
+
+    def solve(self):
+        states = []
+        for h in self.hamiltonians:
+            states.extend(h.solve())
+        return states
+
+
+# =====================================================================
+# DiagonalOperator
+# =====================================================================
+
+def DiagonalOperator(basis: list, operator_func: Callable,
+                     *args) -> np.ndarray:
+    """
+    Compute only diagonal elements of an operator in the given basis.
+
+    Returns a 1-D array of diagonal values.
+    """
+    return np.array([operator_func(b, b, *args) for b in basis],
+                    dtype=complex)
+
+
+# =====================================================================
+# Parameter scanning
+# =====================================================================
+
+def scan_single_parameter(
+    hamiltonian: 'Hamiltonian',
+    param_name: str,
+    values: np.ndarray,
+    track_idxs: Optional[List[int]] = None,
+) -> dict:
+    """
+    Scan a single parameter and record eigenvalues and eigenstates.
+
+    Parameters
+    ----------
+    hamiltonian : Hamiltonian
+    param_name : str
+        Name of the parameter to scan.
+    values : array-like
+        Values to scan over.
+    track_idxs : list of int, optional
+        Indices of states to track (adiabatic tracking).
+
+    Returns
+    -------
+    dict with keys 'values', 'energies', 'states'
+    """
+    n = len(hamiltonian.basis)
+    energies = np.zeros((len(values), n))
+    all_states: List = []
+
+    prev_vecs = None
+
+    for iv, v in enumerate(values):
+        for i, (pn, pv, op) in enumerate(hamiltonian.operators):
+            if pn == param_name:
+                hamiltonian.operators[i] = (pn, v, op)
+
+        hamiltonian.evaluate()
+        states = hamiltonian.solve()
+
+        if track_idxs is not None and prev_vecs is not None:
+            current_vecs = np.array([s.coeffs for s in states])
+            order = _track_states(prev_vecs, current_vecs, track_idxs)
+            states = [states[k] for k in order]
+
+        for i, s in enumerate(states):
+            energies[iv, i] = s.E
+        all_states.append(states)
+
+        if track_idxs is not None:
+            prev_vecs = np.array([s.coeffs for s in states])
+
+    return {"values": np.array(values), "energies": energies,
+            "states": all_states}
+
+
+def scan_parameters(
+    hamiltonian: 'Hamiltonian',
+    params: dict,
+    track_idxs: Optional[List[int]] = None,
+) -> dict:
+    """
+    Scan over a dictionary of parameters simultaneously.
+
+    Parameters
+    ----------
+    params : dict
+        {param_name: array_of_values}.  All arrays must have the same length.
+    """
+    names = list(params.keys())
+    arrays = [np.asarray(params[n]) for n in names]
+    n_steps = len(arrays[0])
+    n = len(hamiltonian.basis)
+    energies = np.zeros((n_steps, n))
+    all_states: List = []
+    prev_vecs = None
+
+    for iv in range(n_steps):
+        for name, arr in zip(names, arrays):
+            for i, (pn, pv, op) in enumerate(hamiltonian.operators):
+                if pn == name:
+                    hamiltonian.operators[i] = (pn, arr[iv], op)
+
+        hamiltonian.evaluate()
+        states = hamiltonian.solve()
+
+        if track_idxs is not None and prev_vecs is not None:
+            current_vecs = np.array([s.coeffs for s in states])
+            order = _track_states(prev_vecs, current_vecs, track_idxs)
+            states = [states[k] for k in order]
+
+        for i, s in enumerate(states):
+            energies[iv, i] = s.E
+        all_states.append(states)
+
+        if track_idxs is not None:
+            prev_vecs = np.array([s.coeffs for s in states])
+
+    return {"values": {n: a for n, a in zip(names, arrays)},
+            "energies": energies, "states": all_states}
+
+
+def _track_states(prev_vecs: np.ndarray, current_vecs: np.ndarray,
+                  track_idxs: List[int]) -> List[int]:
+    """Adiabatic state tracking via maximum overlap."""
+    n = len(current_vecs)
+    overlaps = np.abs(prev_vecs.conj() @ current_vecs.T)
+    order = list(range(n))
+    used = set()
+
+    for idx in track_idxs:
+        if idx >= n:
+            continue
+        row = overlaps[idx]
+        candidates = sorted(range(n), key=lambda j: -row[j])
+        for c in candidates:
+            if c not in used:
+                order[idx] = c
+                used.add(c)
+                break
+
+    remaining = [j for j in range(n) if j not in used]
+    remaining_slots = [i for i in range(n) if i not in track_idxs]
+    for slot, rem in zip(remaining_slots, remaining):
+        order[slot] = rem
+
+    return order

@@ -12,13 +12,13 @@ build/
 # Development files
 dev/
 CaOHBlueMOTSimulations/
-*.png
+
+# Temp / generated images (keep validation ones)
+/*.png
 *.ipynb
 *.ipynb_checkpoints/
 
 # Julia build artifacts
-julia_sim/*.jl
-julia_sim/Project.toml
 julia_sim/Manifest.toml
 
 # OS files

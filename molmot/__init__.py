@@ -26,6 +26,9 @@ propagation
     Trajectory integration and temperature estimation.
 molecules
     Molecule-specific data (SrOH Hamiltonian builder and Julia data loader).
+optimization
+    Bayesian optimisation: GP regression, kernels, acquisition functions,
+    and a batch-capable optimiser (port of BayesianOptimization.jl).
 
 Quick start
 -----------
@@ -45,3 +48,4 @@ from . import obe
 from . import mot
 from . import propagation
 from . import molecules
+from . import optimization
