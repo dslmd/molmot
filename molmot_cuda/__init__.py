@@ -106,6 +106,12 @@ if _CUPY_AVAILABLE:
         obe_force_map_cuda,
     )
 
+    # Stochastic Schrodinger equation (SSE / MCWF)
+    from .stochastic_cuda import (
+        SSESolverCUDA,
+        run_ensemble_cuda,
+    )
+
 else:
     # Define stubs that raise informative errors
     def _make_stub(name):
@@ -148,6 +154,10 @@ else:
     obe_force_subdoppler_cuda = _make_stub("obe_force_subdoppler_cuda")
     obe_force_map_cuda = _make_stub("obe_force_map_cuda")
 
+    # SSE stubs
+    SSESolverCUDA = _make_stub("SSESolverCUDA")
+    run_ensemble_cuda = _make_stub("run_ensemble_cuda")
+
 
 # ---------------------------------------------------------------------------
 # Public API
@@ -186,4 +196,7 @@ __all__ = [
     "steady_state_batch",
     "obe_force_subdoppler_cuda",
     "obe_force_map_cuda",
+    # Stochastic SSE
+    "SSESolverCUDA",
+    "run_ensemble_cuda",
 ]
