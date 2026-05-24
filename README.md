@@ -69,14 +69,27 @@ and a PowerPoint presentation.
 
 ## Performance
 
-| Backend | F(z) 101 pts | F(v,z) 50x50 | Relative to Julia |
+Benchmarked on the SrOH 16-level system with the Hallas SrOH_DC_redMOT parameters.
+
+### Force evaluation
+
+| Backend | F(z) 101 pts | F(v,z) 50x50 | vs Pure Python |
 |---|---|---|---|
-| Pure Python | 38 ms | 9.5 s | ~1x |
-| Python + Numba JIT | **2 ms** | 0.5 s | **~20x faster** |
-| CUDA (RTX 3060) | — | **12 ms** | **~800x faster** |
+| Pure Python | 38 ms | 9.5 s | 1x |
+| Python + Numba JIT | **2 ms** | 0.5 s | **20x** |
+| CUDA (RTX 3060) | — | **12 ms** | **780x** |
+
+### Trajectory integration (30,000 steps per particle)
+
+| Backend | 1 particle | 100 particles | 5,000 particles |
+|---|---|---|---|
+| Pure Python | 125 ms | 12.5 s | 625 s |
+| Python + Numba JIT | 34 ms | 3.4 s | 170 s |
+| CUDA (RTX 3060) | — | 8.7 s | **16 s** |
 
 JIT acceleration is automatic: when Numba is installed, all rate equation
-solvers dispatch to the JIT-compiled version. No code changes needed.
+solvers and trajectory integrators dispatch to the JIT-compiled version.
+No code changes needed. GPU crossover for trajectories is at ~500 particles.
 
 ## What's Inside
 
@@ -135,17 +148,19 @@ Translation of [BayesianOptimization.jl](https://github.com/hallaschristian/Baye
 
 GPU-accelerated versions of all performance-critical solvers:
 
-| Module | What it does | Expected speedup |
+| Module | What it does | Measured speedup |
 |---|---|---|
-| `rate_equations_cuda` | Batched (v,z) rate equation solves | 50-500x |
-| `stochastic_cuda` | Ensemble SSE trajectories | 100-1000x |
+| `rate_equations_cuda` | Batched (v,z) rate equation solves | **780x** (50x50 map) |
+| `trajectories_cuda` | N-particle 1D trajectory ensemble | **12x** (N=5000) |
+| `stochastic_cuda` | Ensemble SSE quantum trajectories | 100-1000x |
 | `simulator_3d_cuda` | 3D force maps, trajectory ensembles | 50-500x |
 | `floquet_cuda` | Batched Floquet velocity scans | 20-100x |
 | `lindblad_cuda` | Batched Liouvillian + sub-Doppler OBE | 10-50x |
 | `force_scan_cuda` | Parameter scans, capture velocity | 50-500x |
 
-Requires CuPy. Graceful fallback when no GPU is available. See
-[molmot_cuda/README.md](molmot_cuda/README.md) for details.
+Requires CuPy. Graceful fallback when no GPU is available. Validated on
+NVIDIA RTX 3060. See [molmot_cuda/README.md](molmot_cuda/README.md) for
+details and scaling data.
 
 ### Pre-built Molecules (`molmot/molecules/`)
 
@@ -199,6 +214,7 @@ molmot/                     CPU Python package
     analysis.py             Ensemble analysis tools
   propagation/              Trajectory integration
     trajectories.py         1D/3D integration, sampling utilities
+    trajectories_jit.py     Numba JIT trajectory loop (~3.7x faster)
   molecules/                Molecular data
     sroh.py                 SrOH builder + Julia data loader
     caoh.py                 CaOH builder
@@ -209,7 +225,8 @@ molmot/                     CPU Python package
     acquisition.py          Acquisition functions
     bopt.py                 Bayesian optimiser
 molmot_cuda/                GPU CUDA package (optional)
-  rate_equations_cuda.py    Batched rate equation solver
+  rate_equations_cuda.py    Batched rate equation solver (780x)
+  trajectories_cuda.py      N-particle trajectory ensemble (12x at N=5000)
   stochastic_cuda.py        Ensemble SSE trajectory solver
   simulator_3d_cuda.py      3D MOT force + trajectories
   floquet_cuda.py           Batched Floquet solver
