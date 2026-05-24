@@ -164,8 +164,8 @@ t0 = time.time()
 result_gpu = optimize_parameters_cuda(mol, delta_arr, split_arr, 1.0, B_grad, verbose=False)
 t_gpu = time.time() - t0
 
-check("K_map 10x10", result_cpu["K"], result_gpu["K_map"])
-check("beta_map 10x10", result_cpu["beta"], result_gpu["beta_map"])
+check("K_map 10x10", result_cpu["K_map"], result_gpu["K_map"])
+check("beta_map 10x10", result_cpu["beta_map"], result_gpu["beta_map"])
 print(f"  CPU: {t_cpu:.3f}s, GPU: {t_gpu:.3f}s, speedup: {t_cpu/t_gpu:.1f}x")
 
 

@@ -78,11 +78,11 @@ def get_device_info() -> dict:
     """
     _require_cupy()
     dev = cp.cuda.Device()
-    attrs = dev.attributes
+    props = cp.cuda.runtime.getDeviceProperties(dev.id)
     free, total = dev.mem_info
     info = {
-        "name": cp.cuda.runtime.getDeviceProperties(dev.id)["name"].decode(),
-        "compute_capability": f"{attrs['ComputeCapabilityMajor']}.{attrs['ComputeCapabilityMinor']}",
+        "name": props["name"].decode(),
+        "compute_capability": f"{props['major']}.{props['minor']}",
         "total_memory_MB": total / (1024 ** 2),
         "free_memory_MB": free / (1024 ** 2),
         "num_devices": cp.cuda.runtime.getDeviceCount(),
