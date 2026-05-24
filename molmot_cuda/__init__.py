@@ -112,6 +112,12 @@ if _CUPY_AVAILABLE:
         run_ensemble_cuda,
     )
 
+    # 1D Euler trajectories (rate-equation force)
+    from .trajectories_cuda import (
+        simulate_trajectory_cuda,
+        simulate_trajectories_cuda,
+    )
+
 else:
     # Define stubs that raise informative errors
     def _make_stub(name):
@@ -158,6 +164,10 @@ else:
     SSESolverCUDA = _make_stub("SSESolverCUDA")
     run_ensemble_cuda = _make_stub("run_ensemble_cuda")
 
+    # Trajectory stubs
+    simulate_trajectory_cuda = _make_stub("simulate_trajectory_cuda")
+    simulate_trajectories_cuda = _make_stub("simulate_trajectories_cuda")
+
 
 # ---------------------------------------------------------------------------
 # Public API
@@ -199,4 +209,7 @@ __all__ = [
     # Stochastic SSE
     "SSESolverCUDA",
     "run_ensemble_cuda",
+    # 1D Euler trajectories
+    "simulate_trajectory_cuda",
+    "simulate_trajectories_cuda",
 ]
