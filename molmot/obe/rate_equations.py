@@ -189,3 +189,30 @@ def solve_rate_equations(
         R_scatter += p[ig] * np.sum(R_sum[ig, :])
 
     return force, p, R_scatter
+
+
+# =====================================================================
+# Auto-dispatch: use JIT version when numba is available
+# =====================================================================
+
+try:
+    from .rate_equations_jit import solve_rate_equations_jit  # noqa: F401
+    _HAS_JIT = True
+except ImportError:
+    _HAS_JIT = False
+
+
+def solve_rate_equations_auto(
+    mol_data, beams, v, z, B_gradient, Gamma_eff_factor=1.0,
+):
+    """
+    Rate equation solver with automatic JIT dispatch.
+
+    Uses the Numba JIT-compiled version if available, otherwise
+    falls back to the pure Python/numpy version.
+    """
+    if _HAS_JIT:
+        return solve_rate_equations_jit(
+            mol_data, beams, v, z, B_gradient, Gamma_eff_factor)
+    return solve_rate_equations(
+        mol_data, beams, v, z, B_gradient, Gamma_eff_factor)

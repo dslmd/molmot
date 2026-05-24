@@ -11,7 +11,7 @@ from typing import Tuple
 import numpy as np
 
 from ..obe.fields import make_rf_mot_beams, make_dc_mot_beams
-from ..obe.rate_equations import solve_rate_equations
+from ..obe.rate_equations import solve_rate_equations_auto as solve_rate_equations
 
 
 class RFMOTSimulator:

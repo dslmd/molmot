@@ -163,23 +163,29 @@ class FloquetOBE:
 
         # Dissipator: spontaneous emission
         d_sq = self.mol_data.d_squared
-        for ie in range(n_e):
-            ie_abs = ie + n_g
-            total = sum(d_sq[ig, ie, q] for ig in range(n_g) for q in range(3))
-            if total < 1e-30:
-                continue
-            for ig in range(n_g):
-                for q in range(3):
-                    br = d_sq[ig, ie, q] / total
-                    if br < 1e-15:
-                        continue
-                    Gc = Gamma_eff * br
-                    Lc = np.zeros((N, N), dtype=complex)
-                    Lc[ig, ie_abs] = np.sqrt(Gc)
-                    LdL = Lc.conj().T @ Lc
-                    L0 += np.kron(Lc.conj(), Lc)
-                    L0 -= 0.5 * np.kron(I, LdL)
-                    L0 -= 0.5 * np.kron(LdL.T, I)
+        try:
+            from .floquet_jit import build_liouvillian_dissipator_jit
+            L0 += build_liouvillian_dissipator_jit(
+                d_sq, Gamma_eff, n_g, n_e, N)
+        except ImportError:
+            for ie in range(n_e):
+                ie_abs = ie + n_g
+                total = sum(d_sq[ig, ie, q]
+                            for ig in range(n_g) for q in range(3))
+                if total < 1e-30:
+                    continue
+                for ig in range(n_g):
+                    for q in range(3):
+                        br = d_sq[ig, ie, q] / total
+                        if br < 1e-15:
+                            continue
+                        Gc = Gamma_eff * br
+                        Lc = np.zeros((N, N), dtype=complex)
+                        Lc[ig, ie_abs] = np.sqrt(Gc)
+                        LdL = Lc.conj().T @ Lc
+                        L0 += np.kron(Lc.conj(), Lc)
+                        L0 -= 0.5 * np.kron(I, LdL)
+                        L0 -= 0.5 * np.kron(LdL.T, I)
 
         # L_plus: coupling from H_plus (raises Fourier order by 1)
         L_plus = -1j * (np.kron(I, H_plus) - np.kron(H_plus.T, I))
@@ -241,28 +247,29 @@ class FloquetOBE:
 
         # Build the big block-tridiagonal matrix
         total_size = n_blocks * N2
-        M = np.zeros((total_size, total_size), dtype=complex)
-
-        for b in range(n_blocks):
-            n = b - n_max  # Fourier order: -n_max, ..., 0, ..., +n_max
-            row_start = b * N2
-            row_end = (b + 1) * N2
-
-            # Diagonal block: L0 - i*n*kv*I
-            M[row_start:row_end, row_start:row_end] = (
-                L0_shifted - 1j * n * kv * np.eye(N2, dtype=complex))
-
-            # Sub-diagonal block: L_plus @ rho_{n-1}
-            if b > 0:
-                col_start = (b - 1) * N2
-                col_end = b * N2
-                M[row_start:row_end, col_start:col_end] = self._L_plus
-
-            # Super-diagonal block: L_minus @ rho_{n+1}
-            if b < n_blocks - 1:
-                col_start = (b + 1) * N2
-                col_end = (b + 2) * N2
-                M[row_start:row_end, col_start:col_end] = self._L_minus
+        try:
+            from .floquet_jit import build_floquet_matrix_jit
+            M = build_floquet_matrix_jit(
+                np.ascontiguousarray(L0_shifted),
+                np.ascontiguousarray(self._L_plus),
+                np.ascontiguousarray(self._L_minus),
+                kv, n_max, N2)
+        except ImportError:
+            M = np.zeros((total_size, total_size), dtype=complex)
+            for b in range(n_blocks):
+                n = b - n_max
+                row_start = b * N2
+                row_end = (b + 1) * N2
+                M[row_start:row_end, row_start:row_end] = (
+                    L0_shifted - 1j * n * kv * np.eye(N2, dtype=complex))
+                if b > 0:
+                    col_start = (b - 1) * N2
+                    col_end = b * N2
+                    M[row_start:row_end, col_start:col_end] = self._L_plus
+                if b < n_blocks - 1:
+                    col_start = (b + 1) * N2
+                    col_end = (b + 2) * N2
+                    M[row_start:row_end, col_start:col_end] = self._L_minus
 
         # Replace trace constraint for the n=0 block
         # The physical constraint is Tr(rho_0) = 1; all other Tr(rho_n) = 0
