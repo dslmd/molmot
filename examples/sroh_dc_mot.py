@@ -36,6 +36,8 @@ from matplotlib import cm
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "julia_sim")
+if not os.path.isdir(DATA_DIR):
+    DATA_DIR = os.path.join(BASE_DIR, "..", "julia_sim")
 OUT_DIR = BASE_DIR
 
 # Physical constants (also available from molmot.constants)
