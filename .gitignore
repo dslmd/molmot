@@ -15,6 +15,7 @@ CaOHBlueMOTSimulations/
 
 # Temp / generated images (keep validation ones)
 /*.png
+examples/*.png
 *.ipynb
 *.ipynb_checkpoints/
 
