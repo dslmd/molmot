@@ -17,6 +17,7 @@ CaOHBlueMOTSimulations/
 /*.png
 examples/*.png
 *.ipynb
+!examples/sroh_dc_redmot_sse_cuda.ipynb
 *.ipynb_checkpoints/
 
 # Julia build artifacts
