@@ -4,18 +4,18 @@ Monte Carlo wavefunction / quantum jump (stochastic Schrodinger equation) solver
 Port of stochastic_schrodinger_equations_fast.jl from OpticalBlochEquations.jl
 by Christian Hallas.
 
-Algorithm (MCWF / quantum trajectories):
-    1. Draw random number r ~ U(0,1), set jump threshold eta = -ln(r).
+Algorithm (MCWF / quantum trajectories, "direct" method):
+    1. Draw random number eps ~ U(0,1) as the jump threshold.
     2. Evolve psi under the non-Hermitian effective Hamiltonian
        H_eff = H_0 + H_laser - i(Gamma/2) sum_c L_c^dag L_c
     3. Do NOT normalize psi between jumps -- the norm decrease encodes
        the accumulated no-jump probability.
     4. Monitor dp = 1 - ||psi||^2.
-    5. When dp > eta: quantum jump occurs.
+    5. When dp > eps (equivalently ||psi||^2 < 1 - eps): quantum jump occurs.
        - Select a decay channel c with probability p_c = ||L_c psi||^2 / sum_c' ||L_c' psi||^2.
        - Apply jump: psi -> L_c psi / ||L_c psi||  (normalize ONLY here).
        - Add a random momentum kick (photon recoil in random direction).
-       - Draw a new threshold eta = -ln(r).
+       - Draw a new threshold eps ~ U(0,1).
     6. Position and velocity are evolved classically using the dipole
        force expectation value.
 
@@ -580,15 +580,15 @@ class SSESolver:
     """
     Solve the SSE for a single molecular trajectory using the quantum jump method.
 
-    Correct MCWF algorithm:
-        1. Draw r ~ U(0,1), set threshold eta = -ln(r).
+    Correct MCWF algorithm (direct method):
+        1. Draw eps ~ U(0,1) as the jump threshold.
         2. Evolve psi under H_eff (non-Hermitian) -- do NOT normalize.
         3. At each step, check dp = 1 - ||psi||^2.
-        4. When dp > eta: quantum jump.
+        4. When dp > eps: quantum jump.
            - Select decay channel c with p_c = ||L_c psi||^2 / sum_c' ||L_c' psi||^2.
            - Apply jump: psi -> L_c psi / ||L_c psi|| (normalize ONLY here).
            - Add random photon recoil kick.
-           - Draw new threshold eta = -ln(r).
+           - Draw new threshold eps ~ U(0,1).
         5. Position: dr/dt = v.
         6. Velocity: dv/dt = F/m.
 
@@ -707,8 +707,16 @@ class SSESolver:
         n_g = p.n_ground
         n_e = p.n_excited
 
-        # Quantum jump threshold: eta = -ln(r), r ~ U(0,1)
-        threshold = -np.log(rng.random())
+        # Quantum jump threshold (direct method): draw eps ~ U(0,1).
+        # A jump occurs when the (un-normalized) survival probability
+        # ||psi||^2 drops below eps, i.e. when dp = 1 - ||psi||^2 > 1 - eps.
+        # Since eps is uniform on (0,1), so is (1 - eps); we therefore compare
+        # dp against a uniform threshold.  (Using -ln(r) here would be the
+        # *waiting-time* convention, which must be compared against
+        # -ln(||psi||^2), NOT against 1 - ||psi||^2.  Mixing the two makes the
+        # jump condition unreachable whenever -ln(r) > 1 -- ~37% of draws --
+        # which silently freezes those trajectories.)
+        threshold = rng.random()
 
         # Storage
         n_save = n_steps // save_every + 1
@@ -767,8 +775,8 @@ class SSESolver:
 
                 last_decay_time = t_current
 
-                # Draw new threshold
-                threshold = -np.log(rng.random())
+                # Draw new threshold (uniform; see note at first draw)
+                threshold = rng.random()
 
         # Final save
         if save_idx < n_save:

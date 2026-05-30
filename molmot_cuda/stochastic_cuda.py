@@ -469,10 +469,14 @@ void sse_trajectory_kernel(
         v_vel[i] = v0_all[tid * 3 + i];
     }
 
-    // Quantum jump threshold: eta = -ln(r), r ~ U(0,1)
+    // Quantum jump threshold (direct method): eps ~ U(0,1).
+    // Jump when dp = 1 - ||psi||^2 > eps.  Must NOT use -log(r) here:
+    // that is the waiting-time convention (compared against -ln||psi||^2),
+    // and mixing it with the 1 - ||psi||^2 decrement makes the jump
+    // unreachable whenever -log(r) > 1 (~37% of draws), freezing those
+    // trajectories.
     double u_rand = curand_uniform_double(&rng_state);
-    if (u_rand < 1e-15) u_rand = 1e-15;
-    double threshold = -log(u_rand);
+    double threshold = u_rand;
 
     int n_scatters = 0;
     int escaped = 0;
@@ -720,10 +724,8 @@ void sse_trajectory_kernel(
 
             last_decay_time = t_current;
 
-            // Draw new threshold
-            u_rand = curand_uniform_double(&rng_state);
-            if (u_rand < 1e-15) u_rand = 1e-15;
-            threshold = -log(u_rand);
+            // Draw new threshold (uniform; direct method)
+            threshold = curand_uniform_double(&rng_state);
         }
 
         // ==== Optional renormalization (prevent numerical drift) ====
@@ -741,9 +743,7 @@ void sse_trajectory_kernel(
                     psi_im[i] *= inv_norm;
                 }
                 // Reset jump threshold since we modified the norm
-                u_rand = curand_uniform_double(&rng_state);
-                if (u_rand < 1e-15) u_rand = 1e-15;
-                threshold = -log(u_rand);
+                threshold = curand_uniform_double(&rng_state);
             }
         }
     }
